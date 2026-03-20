@@ -22,7 +22,7 @@ cd server && npm run dev
 # Start frontend (in another terminal)
 cd client && npm run dev
 
-this is uodated 2nd updated pr..
+this is uodated 2nd updated pr..//
 ```
 
 ## Running Tests
