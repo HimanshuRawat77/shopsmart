@@ -16,9 +16,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Root Route (optional, just to show something)
+// Root Route
 app.get('/', (req, res) => {
   res.send('ShopSmart Backend Service');
+});
+
+// 404 catch-all
+app.use((req, res) => {
+  res.status(404).json({ error: 'Route not found' });
 });
 
 module.exports = app;
