@@ -3,6 +3,7 @@
 A full-stack web application with a React frontend and Node.js/Express backend.
 
 ## Tech Stack
+
 - **Frontend**: React 18 + Vite + ESLint
 - **Backend**: Node.js + Express + ESLint
 - **Testing**: Vitest (frontend), Jest + Supertest (backend), Playwright (E2E)
@@ -20,6 +21,8 @@ cd server && npm run dev
 
 # Start frontend (in another terminal)
 cd client && npm run dev
+
+this is uodated ..
 ```
 
 ## Running Tests
@@ -44,13 +47,13 @@ npm run test:e2e
 
 ## CI Workflows
 
-| Workflow | Trigger | What it does |
-|---|---|---|
-| `Frontend-test.yml` | push / PR | lint + test + build frontend |
-| `backend-tests.yml` | push / PR | lint + test backend |
-| `e2e-tests.yml` | push / PR | build frontend + run Playwright |
-| `deploy to Ec2.yml` | push to demo | deploy to AWS EC2 via SSH |
-| `deploy-pages.yml` | push to main | deploy frontend to GitHub Pages |
+| Workflow            | Trigger      | What it does                    |
+| ------------------- | ------------ | ------------------------------- |
+| `Frontend-test.yml` | push / PR    | lint + test + build frontend    |
+| `backend-tests.yml` | push / PR    | lint + test backend             |
+| `e2e-tests.yml`     | push / PR    | build frontend + run Playwright |
+| `deploy to Ec2.yml` | push to demo | deploy to AWS EC2 via SSH       |
+| `deploy-pages.yml`  | push to main | deploy frontend to GitHub Pages |
 
 ## Project Structure
 
