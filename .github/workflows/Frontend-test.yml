@@ -37,7 +37,16 @@ jobs:
 
       # Unit & Integration Tests (Vitest) 
       - name: Run Tests (Vitest)
-        run: npm run test -- --run
+        run: |
+          mkdir -p test-results
+          npm run test -- --run --reporter=default --reporter=junit --outputFile=./test-results/vitest-junit.xml
+
+      - name: Upload Frontend Test Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-vitest-report
+          path: client/test-results/vitest-junit.xml
 
       # Build 
       - name: Build

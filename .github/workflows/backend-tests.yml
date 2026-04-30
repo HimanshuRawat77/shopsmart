@@ -33,4 +33,13 @@ jobs:
         run: npm run lint
 
       - name: Run Tests (Jest + Supertest)
-        run: npm test
+        run: |
+          mkdir -p test-results
+          npm test -- --json --outputFile=./test-results/jest-results.json
+
+      - name: Upload Backend Test Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-jest-report
+          path: server/test-results/jest-results.json

@@ -31,6 +31,11 @@ data "aws_subnets" "default" {
 }
 
 # --- IAM Roles for ECS ---
+data "aws_iam_role" "lab_role" {
+  name = "LabRole"
+}
+
+/*
 resource "aws_iam_role" "ecs_task_execution_role" {
   name = "${var.project_name}-task-exec-role"
 
@@ -52,6 +57,7 @@ resource "aws_iam_role_policy_attachment" "ecs_task_execution_role_policy" {
   role       = aws_iam_role.ecs_task_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
+*/
 
 # --- Security Group ---
 resource "aws_security_group" "ecs_sg" {
@@ -81,7 +87,7 @@ resource "aws_ecs_task_definition" "app" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = "256"
   memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_task_execution_role.arn
+  execution_role_arn       = data.aws_iam_role.lab_role.arn
 
   container_definitions = jsonencode([
     {
