@@ -478,6 +478,9 @@ Value: your AWS Academy secret key
 Name: AWS_SESSION_TOKEN
 Value: your AWS Academy session token
 
+Name: AWS_REGION
+Value: us-east-1 (or your preferred region)
+
 Name: TERRAFORM_STATE_BUCKET
 Value: shopsmart-bucket-659fc6e3
 ```
