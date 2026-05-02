@@ -5,7 +5,7 @@ COPY client/package*.json ./
 RUN npm install
 COPY client/ .
 # Build with empty VITE_API_URL to use relative paths for API calls
-RUN VITE_API_URL= npm run build
+RUN npm run build
 
 # Stage 2: Install backend dependencies
 FROM node:18-slim AS server-deps
