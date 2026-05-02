@@ -498,17 +498,43 @@ backend-jest-report
 playwright-report
 ```
 
-## Project Structure
+## Troubleshooting & Lessons Learned
 
-```
-shopsmart/
-├── client/          # React + Vite frontend
-├── server/          # Node.js + Express backend
-├── e2e/             # Playwright E2E tests
-├── .github/
-│   ├── workflows/   # CI/CD pipelines
-│   └── dependabot.yml
-├── setup.sh         # idempotent local setup
-├── terraform/       # AWS infrastructure as code
-└── playwright.config.js
-```
+During the deployment of ShopSmart to AWS ECS, we encountered and resolved the following issues:
+
+### 1. Error: `ExpiredToken` (Terraform/CLI)
+- **Issue**: Terraform commands failed with `retrieving caller identity from STS: ExpiredToken`.
+- **Cause**: Local AWS CLI credentials (especially the Session Token in AWS Academy) had expired.
+- **Resolution**: Updated local credentials using `aws configure` and included the fresh `AWS_SESSION_TOKEN`.
+
+### 2. Error: `CannotPullContainerError` (Platform Mismatch)
+- **Issue**: ECS Tasks would immediately move to a `Stopped` state.
+- **Cause**: Building the image on a Mac (M1/M2/M3) created an `arm64` image, but ECS Fargate (by default) requires `linux/amd64`.
+- **Resolution**: Used the `--platform` flag during build:
+  ```bash
+  docker build --platform linux/amd64 -t shopsmart-repo .
+  ```
+
+### 3. Blank White Page (Vite Asset Paths)
+- **Issue**: The application loaded with the correct title but showed a blank white screen.
+- **Cause**: The `vite.config.js` had `base: '/shopsmart/'` defined, causing the app to look for assets in the wrong directory.
+- **Resolution**: Changed the base path to root in `client/vite.config.js`:
+  ```javascript
+  export default defineConfig({
+    base: '/',
+    // ...
+  })
+  ```
+
+### 4. API Connectivity Issues (Relative Paths)
+- **Issue**: The frontend could not communicate with the backend API in the container.
+- **Cause**: The API URL was hardcoded to `localhost:5001`.
+- **Resolution**: Updated `client/src/App.jsx` to use relative paths for API calls when no environment variable is provided:
+  ```javascript
+  const API = import.meta.env.VITE_API_URL || ''
+  ```
+
+### 5. Deployment of Placeholder instead of Real App
+- **Issue**: The site showed a "Placeholder" message instead of the full UI.
+- **Cause**: The root `Dockerfile` was pointing to a temporary `app/` folder.
+- **Resolution**: Updated the `Dockerfile` to a **Multi-Stage Build** that builds the React frontend and copies it into the Node.js backend's `public` folder to be served as static content.
