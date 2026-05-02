@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 
 const app = express();
 
@@ -89,9 +90,18 @@ app.delete('/api/cart', (req, res) => {
   res.json({ message: 'Cart cleared' });
 });
 
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, '../public')));
+
 // Root
 app.get('/', (req, res) => {
-  res.send('ShopSmart Backend Service');
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// Catch-all to serve index.html for client-side routing
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api')) return next();
+  res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
 // 404 catch-all
