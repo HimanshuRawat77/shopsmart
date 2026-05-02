@@ -181,27 +181,19 @@ Go back to the project root:
 cd ..
 ```
 
-Set variables for your AWS account and region:
-
-```bash
-AWS_REGION=us-east-1
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-ECR_REPOSITORY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/shopsmart-repo"
-IMAGE_TAG=latest
-```
-
 Log in to ECR:
 
 ```bash
-aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REPOSITORY"
+# Replace <AWS_ACCOUNT_ID> with your actual account ID (e.g., 872784526582)
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com
 ```
 
 Build, tag, and push the image:
 
 ```bash
-docker build -t shopsmart:$IMAGE_TAG .
-docker tag shopsmart:$IMAGE_TAG "$ECR_REPOSITORY:$IMAGE_TAG"
-docker push "$ECR_REPOSITORY:$IMAGE_TAG"
+docker build -t shopsmart-repo .
+docker tag shopsmart-repo:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopsmart-repo:latest
+docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopsmart-repo:latest
 ```
 
 ### Step 6: Plan the Full Infrastructure
@@ -251,9 +243,9 @@ aws ecs describe-services --cluster shopsmart-cluster --services shopsmart-servi
 After making code changes, rebuild and push the Docker image:
 
 ```bash
-docker build -t shopsmart:latest .
-docker tag shopsmart:latest "$ECR_REPOSITORY:latest"
-docker push "$ECR_REPOSITORY:latest"
+docker build -t shopsmart-repo .
+docker tag shopsmart-repo:latest <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopsmart-repo:latest
+docker push <AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com/shopsmart-repo:latest
 ```
 
 Then force ECS to redeploy:
@@ -334,7 +326,7 @@ From the project root:
 
 ```bash
 cd /Users/himanshurawat/shopsmart
-docker build -t shopsmart:latest .
+docker build -t shopsmart-repo .
 ```
 
 ### Step 4: Log In to Amazon ECR
@@ -356,7 +348,7 @@ aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS 
 ### Step 5: Tag and Push the Image to ECR
 
 ```bash
-docker tag shopsmart:latest "$ECR_REPOSITORY:latest"
+docker tag shopsmart-repo:latest "$ECR_REPOSITORY:latest"
 docker push "$ECR_REPOSITORY:latest"
 ```
 
@@ -419,20 +411,17 @@ Phase 3 is complete when the Docker image is in ECR and the ECS service shows `r
 
 ## Automated GitHub Pipeline
 
-The `ShopSmart Pipeline` workflow runs automatically on every push to `main`.
+The **ShopSmart CI/CD** workflow runs automatically on every push to `main` or `master`.
 
 Pipeline order:
 
 ```text
-Push to main
-Run frontend tests and upload Vitest report
-Run backend tests and upload Jest report
-Run Playwright E2E tests and upload Playwright report
-Terraform init, validate, plan, and apply prerequisites
-Build Docker image
-Push Docker image to ECR
-Deploy ECS Fargate service
-Verify ECS service is stable
+Push to main/master
+Run frontend tests and build
+Authenticate with AWS
+Log in to Amazon ECR
+Build, Tag, and Push Docker image to ECR
+Deploy to ECS Fargate (Force New Deployment)
 ```
 
 ### Required GitHub Secrets
