@@ -147,10 +147,14 @@ jobs:
 
       - name: Terraform Init with S3 State
         run: |
+          # Trim whitespace from secrets
+          REGION=$(echo "${{ secrets.AWS_REGION }}" | xargs)
+          BUCKET=$(echo "${{ secrets.TERRAFORM_STATE_BUCKET }}" | xargs)
+          
           terraform init \
-            -backend-config="bucket=${{ secrets.TERRAFORM_STATE_BUCKET }}" \
+            -backend-config="bucket=$BUCKET" \
             -backend-config="key=shopsmart/terraform.tfstate" \
-            -backend-config="region=${{ secrets.AWS_REGION }}"
+            -backend-config="region=$REGION"
         working-directory: ./terraform
 
       - name: Terraform Validate
