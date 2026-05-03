@@ -155,6 +155,65 @@ resource "aws_lb_listener" "http" {
   }
 }
 
+# --- Database Security Group ---
+resource "aws_security_group" "db_sg" {
+  name        = "${var.project_name}-db-sg"
+  description = "Allow inbound traffic from ECS on port 5432"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress {
+    description     = "PostgreSQL from ECS tasks"
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.ecs_sg.id]
+  }
+
+  ingress {
+    description      = "PostgreSQL from local machine"
+    from_port        = 5432
+    to_port          = 5432
+    protocol         = "tcp"
+    cidr_blocks      = ["115.244.141.202/32"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# --- RDS Subnet Group ---
+resource "aws_db_subnet_group" "main" {
+  name       = "${var.project_name}-db-subnet-group"
+  subnet_ids = data.aws_subnets.default.ids
+
+  tags = {
+    Name = "${var.project_name}-db-subnet-group"
+  }
+}
+
+# --- RDS Instance ---
+resource "aws_db_instance" "main" {
+  identifier           = "${var.project_name}-db"
+  allocated_storage    = 20
+  storage_type         = "gp2"
+  engine               = "postgres"
+  engine_version       = "15"
+  instance_class       = "db.t3.micro"
+  db_name              = "shopsmart"
+  username             = var.db_username
+  password             = var.db_password
+  parameter_group_name = "default.postgres15"
+  skip_final_snapshot  = true
+  publicly_accessible  = true
+  apply_immediately    = true
+  db_subnet_group_name = aws_db_subnet_group.main.name
+  vpc_security_group_ids = [aws_security_group.db_sg.id]
+}
+
 # --- ECS Task Definition ---
 resource "aws_ecs_task_definition" "app" {
   family                   = "${var.project_name}-task"
@@ -173,6 +232,12 @@ resource "aws_ecs_task_definition" "app" {
         {
           containerPort = 3000
           hostPort      = 3000
+        }
+      ]
+      environment = [
+        {
+          name  = "DATABASE_URL"
+          value = "postgresql://${var.db_username}:${var.db_password}@${aws_db_instance.main.endpoint}/shopsmart"
         }
       ]
     }
@@ -208,4 +273,8 @@ output "ecr_repository_url" {
 
 output "alb_dns_name" {
   value = aws_lb.main.dns_name
+}
+
+output "db_endpoint" {
+  value = aws_db_instance.main.endpoint
 }

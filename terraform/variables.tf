@@ -12,3 +12,14 @@ variable "image_tag" {
   description = "The tag of the Docker image to deploy"
   default     = "latest"
 }
+
+variable "db_username" {
+  description = "Database administrator username"
+  default     = "dbadmin"
+}
+
+variable "db_password" {
+  description = "Database administrator password"
+  sensitive   = true
+  default     = "ShopSmart123!"
+}
