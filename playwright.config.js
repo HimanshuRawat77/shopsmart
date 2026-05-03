@@ -18,7 +18,7 @@ export default defineConfig({
     // Serve the built frontend before running tests
     webServer: {
         command: 'npm run preview --prefix client',
-        url: 'http://localhost:4173/shopsmart/',
+        url: 'http://localhost:4173/',
         reuseExistingServer: true,
         timeout: 30_000,
     },

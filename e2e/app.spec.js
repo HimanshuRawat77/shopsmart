@@ -14,18 +14,18 @@
 
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = 'http://localhost:4173/shopsmart/';
+const BASE_URL = '/';
 
 test.describe('ShopSmart E2E — Homepage', () => {
-    test('page has ShopSmart heading', async ({ page }) => {
+    test('page has Shop Smarter heading', async ({ page }) => {
         await page.goto(BASE_URL);
-        const heading = page.getByRole('heading', { name: /ShopSmart/i });
+        const heading = page.getByRole('heading', { name: /Shop Smarter/i });
         await expect(heading).toBeVisible();
     });
 
-    test('page shows Backend Status section', async ({ page }) => {
+    test('page shows API status', async ({ page }) => {
         await page.goto(BASE_URL);
-        const section = page.getByText(/Backend Status/i);
+        const section = page.getByText(/API/i);
         await expect(section).toBeVisible();
     });
 
