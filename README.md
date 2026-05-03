@@ -538,3 +538,24 @@ During the deployment of ShopSmart to AWS ECS, we encountered and resolved the f
 - **Issue**: The site showed a "Placeholder" message instead of the full UI.
 - **Cause**: The root `Dockerfile` was pointing to a temporary `app/` folder.
 - **Resolution**: Updated the `Dockerfile` to a **Multi-Stage Build** that builds the React frontend and copies it into the Node.js backend's `public` folder to be served as static content.
+
+### 6. Direct IP Access and Port Requirements
+- **Issue**: The application was only accessible via its public IP on port 3000 (`http://<public-ip>:3000`), which is not suitable for production.
+- **Resolution**: Implemented an **AWS Application Load Balancer (ALB)**.
+  - The ALB listens on standard HTTP (port 80).
+  - It forwards traffic to the ECS tasks on port 3000.
+  - Users can now access the app via a clean DNS name without specifying a port.
+
+### 7. Security Group Lockdown
+- **Issue**: The initial security group was overly permissive, allowing anyone to access the container directly on port 3000.
+- **Resolution**: 
+  - Created a dedicated **ALB Security Group** allowing ports 80 and 443 from the internet.
+  - Updated the **ECS Security Group** to only allow inbound traffic from the ALB Security Group on port 3000.
+  - This ensures that the application cannot be bypassed and all traffic is filtered by the load balancer.
+
+### 8. High Availability & Stability
+- **Issue**: Single point of failure and lack of health monitoring.
+- **Resolution**: 
+  - Configured the ALB to use subnets in multiple Availability Zones for high availability.
+  - Implemented **Target Group Health Checks** on the root path (`/`).
+  - Integrated the ALB with the ECS Service using a `load_balancer` block in Terraform, ensuring tasks auto-register and traffic is only routed to healthy containers.
