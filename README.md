@@ -1,4 +1,5 @@
 # ShopSmart
+// serty
 
 A full-stack web application with a React frontend and Node.js/Express backend.
 
