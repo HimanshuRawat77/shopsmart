@@ -29,12 +29,12 @@ jobs:
         working-directory: client
 
   deploy:
-    name: Build & Deploy to ECS
+    name: Terraform, Docker, and ECS Deploy
     runs-on: ubuntu-latest
-    
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     needs: [frontend-build]
     
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -47,6 +47,42 @@ jobs:
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION || 'us-east-1' }}
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init with S3 State
+        run: |
+          REGION=$(echo "${{ secrets.AWS_REGION || 'us-east-1' }}" | xargs)
+          BUCKET=$(echo "${{ secrets.TERRAFORM_STATE_BUCKET }}" | xargs)
+          
+          terraform init \
+            -backend-config="bucket=$BUCKET" \
+            -backend-config="key=shopsmart/terraform.tfstate" \
+            -backend-config="region=$REGION"
+        working-directory: ./terraform
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: ./terraform
+
+      - name: Terraform Plan
+        env:
+          TF_VAR_aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+        run: terraform plan -out=tfplan
+        working-directory: ./terraform
+
+      - name: Terraform Apply Infrastructure Prerequisites (Create ECR)
+        env:
+          TF_VAR_aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+        run: |
+          terraform apply -auto-approve \
+            -target=aws_ecr_repository.app \
+            -target=aws_s3_bucket.app_bucket \
+            -target=aws_s3_bucket_versioning.app_bucket_versioning \
+            -target=aws_s3_bucket_server_side_encryption_configuration.app_bucket_encryption \
+            -target=aws_s3_bucket_public_access_block.app_bucket_public_access
+        working-directory: ./terraform
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
@@ -58,16 +94,28 @@ jobs:
           ECR_REPOSITORY: shopsmartrevised-repo
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          # Step 5 & 11: Build and Tag
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          
-          # Step 6: Push Image
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Update ECS Service (Force New Deployment)
+      - name: Terraform Apply ECS Deployment
+        env:
+          TF_VAR_aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
+          TF_VAR_image_tag: ${{ github.sha }}
+        run: terraform apply -auto-approve
+        working-directory: ./terraform
+
+      - name: Verify ECS Service
         run: |
-          aws ecs update-service --cluster shopsmartrevised-cluster --service shopsmartrevised-service --force-new-deployment
+          aws ecs wait services-stable \
+            --cluster shopsmartrevised-cluster \
+            --services shopsmartrevised-service \
+            --region ${{ secrets.AWS_REGION || 'us-east-1' }}
+
+          aws ecs describe-services \
+            --cluster shopsmartrevised-cluster \
+            --services shopsmartrevised-service \
+            --region ${{ secrets.AWS_REGION || 'us-east-1' }} \
+            --query "services[0].{status:status,desiredCount:desiredCount,runningCount:runningCount}"
