@@ -127,7 +127,7 @@ resource "aws_lb" "main" {
 }
 
 resource "aws_lb_target_group" "app" {
-  name        = "${var.project_name}-tg"
+  name        = "${var.project_name}-tg-${random_id.bucket_suffix.hex}"
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = data.aws_vpc.default.id
