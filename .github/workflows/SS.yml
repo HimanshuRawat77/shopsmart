@@ -55,7 +55,7 @@ jobs:
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: shopsmart-repo
+          ECR_REPOSITORY: shopsmartrevised-repo
           IMAGE_TAG: ${{ github.sha }}
         run: |
           # Step 5 & 11: Build and Tag
@@ -70,4 +70,4 @@ jobs:
 
       - name: Update ECS Service (Force New Deployment)
         run: |
-          aws ecs update-service --cluster shopsmart-cluster --service shopsmart-service --force-new-deployment
+          aws ecs update-service --cluster shopsmartrevised-cluster --service shopsmartrevised-service --force-new-deployment

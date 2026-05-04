@@ -4,6 +4,7 @@ resource "random_id" "bucket_suffix" {
 
 resource "aws_s3_bucket" "app_bucket" {
   bucket = "${var.project_name}-bucket-${random_id.bucket_suffix.hex}"
+  force_destroy = true
 }
 
 resource "aws_s3_bucket_versioning" "app_bucket_versioning" {
