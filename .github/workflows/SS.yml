@@ -1,4 +1,4 @@
-name: ShopSmart CI/CD
+name: ShopSmart Master Pipeline
 
 on:
   push:
@@ -8,31 +8,87 @@ on:
   workflow_dispatch:
 
 jobs:
-  frontend-build:
-    name: Frontend Build
+  frontend-tests:
+    name: Frontend Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: client/package-lock.json
 
-      - name: Install dependencies
-        run: npm install
+      - name: Install & Test
         working-directory: client
+        run: |
+          npm install
+          npm run lint
+          mkdir -p test-results
+          npm run test -- --run --reporter=junit --outputFile=./test-results/vitest-junit.xml
 
-      - name: Build
-        run: npm run build
-        working-directory: client
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-vitest-report
+          path: client/test-results/vitest-junit.xml
+
+  backend-tests:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install & Test
+        working-directory: server
+        run: |
+          npm install
+          npm run lint
+          mkdir -p test-results
+          npm test -- --json --outputFile=./test-results/jest-results.json
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-jest-report
+          path: server/test-results/jest-results.json
+
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install & Build
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+          cd client && npm install && npm run build
+
+      - name: Run E2E
+        run: npm run test:e2e
+
+      - name: Upload Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
 
   deploy:
-    name: Terraform, Docker, and ECS Deploy
+    name: Infrastructure & Deployment
     runs-on: ubuntu-latest
-    needs: [frontend-build]
-    
+    needs: [frontend-tests, backend-tests, e2e-tests]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
 
     steps:
@@ -50,28 +106,17 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Init with S3 State
+      - name: Terraform Init
         run: |
           REGION=$(echo "${{ secrets.AWS_REGION || 'us-east-1' }}" | xargs)
           BUCKET=$(echo "${{ secrets.TERRAFORM_STATE_BUCKET }}" | xargs)
-          
           terraform init \
             -backend-config="bucket=$BUCKET" \
             -backend-config="key=shopsmart/terraform.tfstate" \
             -backend-config="region=$REGION"
         working-directory: ./terraform
 
-      - name: Terraform Validate
-        run: terraform validate
-        working-directory: ./terraform
-
-      - name: Terraform Plan
-        env:
-          TF_VAR_aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
-        run: terraform plan -out=tfplan
-        working-directory: ./terraform
-
-      - name: Terraform Apply Infrastructure Prerequisites (Create ECR)
+      - name: Terraform Apply Prerequisites (ECR/S3)
         env:
           TF_VAR_aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
         run: |
@@ -87,7 +132,7 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build, Tag, and Push Image to ECR
+      - name: Build & Push Docker Image
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -98,24 +143,17 @@ jobs:
           docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
-          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Terraform Apply ECS Deployment
+      - name: Terraform Apply Full Infrastructure
         env:
           TF_VAR_aws_region: ${{ secrets.AWS_REGION || 'us-east-1' }}
           TF_VAR_image_tag: ${{ github.sha }}
         run: terraform apply -auto-approve
         working-directory: ./terraform
 
-      - name: Verify ECS Service
+      - name: Verify ECS Stability
         run: |
           aws ecs wait services-stable \
             --cluster shopsmartrevised-cluster \
             --services shopsmartrevised-service \
             --region ${{ secrets.AWS_REGION || 'us-east-1' }}
-
-          aws ecs describe-services \
-            --cluster shopsmartrevised-cluster \
-            --services shopsmartrevised-service \
-            --region ${{ secrets.AWS_REGION || 'us-east-1' }} \
-            --query "services[0].{status:status,desiredCount:desiredCount,runningCount:runningCount}"
