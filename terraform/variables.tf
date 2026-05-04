@@ -5,7 +5,7 @@ variable "aws_region" {
 
 variable "project_name" {
   description = "Name of the project"
-  default     = "shopsmart_2"
+  default     = "shopsmartrevised"
 }
 
 variable "image_tag" {
